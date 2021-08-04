@@ -254,9 +254,10 @@ class XLSXWriter
             $default_column_types = $this->initializeColumnTypes( array_fill($from=0, $until=count($row), 'GENERAL') );//will map to n_auto
             $sheet->columns = array_merge((array)$sheet->columns, $default_column_types);
         }
-
+        $allow_formulas = true;
         if (!empty($row_options))
         {
+            $allow_formulas = isset($row_options['allowFormulas']) ? (bool)($row_options['allowFormulas']) : true;
             $ht = isset($row_options['height']) ? floatval($row_options['height']) : 12.1;
             $customHt = isset($row_options['height']) ? true : false;
             $hidden = isset($row_options['hidden']) ? (bool)($row_options['hidden']) : false;
@@ -274,7 +275,7 @@ class XLSXWriter
             $number_format = $sheet->columns[$c]['number_format'];
             $number_format_type = $sheet->columns[$c]['number_format_type'];
             $cell_style_idx = empty($style) ? $sheet->columns[$c]['default_cell_style'] : $this->addCellStyle( $number_format, json_encode(isset($style[0]) ? $style[$c] : $style) );
-            $this->writeCell($sheet->file_writer, $sheet->row_count, $c, $v, $number_format_type, $cell_style_idx);
+            $this->writeCell($sheet->file_writer, $sheet->row_count, $c, $v, $number_format_type, $cell_style_idx, $allow_formulas);
             $c++;
         }
         $sheet->file_writer->write('</row>');
@@ -356,13 +357,13 @@ class XLSXWriter
         $this->finalizeSheet($sheet_name);
     }
 
-    protected function writeCell(XLSXWriter_BuffererWriter &$file, $row_number, $column_number, $value, $num_format_type, $cell_style_idx)
+    protected function writeCell(XLSXWriter_BuffererWriter &$file, $row_number, $column_number, $value, $num_format_type, $cell_style_idx, $allow_formulas = true)
     {
         $cell_name = self::xlsCell($row_number, $column_number);
 
         if (!is_scalar($value) || $value==='') { //objects, array, empty
             $file->write('<c r="'.$cell_name.'" s="'.$cell_style_idx.'"/>');
-        } elseif (is_string($value) && $value{0}=='='){
+        } elseif (is_string($value) && $value{0}=='=' && $allow_formulas){
             $file->write('<c r="'.$cell_name.'" s="'.$cell_style_idx.'" t="s"><f>'.self::xmlspecialchars($value).'</f></c>');
         } elseif ($num_format_type=='n_date') {
             $file->write('<c r="'.$cell_name.'" s="'.$cell_style_idx.'" t="n"><v>'.intval(self::convert_date_time($value)).'</v></c>');
